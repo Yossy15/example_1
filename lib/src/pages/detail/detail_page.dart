@@ -4,6 +4,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:yossy_test/src/models/news_model.dart';
 import 'package:yossy_test/src/riverpod/provider_page.dart';
 import 'package:yossy_test/src/utils/date_utils.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class detailPage extends ConsumerStatefulWidget {
   final Article article;
@@ -42,11 +43,15 @@ class _detailPageState extends ConsumerState<detailPage> {
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Article Details'),
+        title: Text('Article Details', style: GoogleFonts.anuphan(),),
       ),
       body: SmartRefresher(
         controller: _refreshController,
         onRefresh: _onRefresh,
+        enablePullDown: true,
+        enablePullUp: false,
+        header: MaterialClassicHeader(),
+
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,10 +86,10 @@ class _detailPageState extends ConsumerState<detailPage> {
         padding: const EdgeInsets.all(16),
         child: Text(
           widget.article.title ?? 'No title',
-          style: const TextStyle(
+          style: GoogleFonts.anuphan(textStyle: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-          ),
+          ),),
         ),
       ),
     ];
@@ -127,20 +132,20 @@ class _detailPageState extends ConsumerState<detailPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Summary',
-              style: TextStyle(
+              style: GoogleFonts.anuphan(textStyle: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-              ),
+              ),),
             ),
             const SizedBox(height: 8),
             Text(
               widget.article.description!,
-              style: const TextStyle(
+              style: GoogleFonts.anuphan(textStyle: const TextStyle(
                 fontSize: 14,
                 height: 1.6,
-              ),
+              ),),
             ),
           ],
         ),
@@ -153,20 +158,20 @@ class _detailPageState extends ConsumerState<detailPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Full Article',
-              style: TextStyle(
+              style: GoogleFonts.anuphan(textStyle: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-              ),
+              ),),
             ),
             const SizedBox(height: 8),
             Text(
               widget.article.content!,
-              style: const TextStyle(
+              style: GoogleFonts.anuphan( textStyle: const TextStyle(
                 fontSize: 14,
                 height: 1.6,
-              ),
+              ),),
             ),
           ],
         ),
@@ -179,20 +184,20 @@ class _detailPageState extends ConsumerState<detailPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Source',
-              style: TextStyle(
+              style: GoogleFonts.anuphan(textStyle: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-              ),
+              ),),
             ),
             const SizedBox(height: 4),
             Text(
               widget.article.source!.name ?? 'Unknown Source',
-              style: TextStyle(
+              style: GoogleFonts.anuphan(textStyle: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
-              ),
+              ),),
             ),
           ],
         ),
@@ -215,17 +220,17 @@ class _detailPageState extends ConsumerState<detailPage> {
               children: [
                 Text(
                   widget.article.author ?? 'Unknown',
-                  style: const TextStyle(
+                  style: GoogleFonts.anuphan(textStyle: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                  ),
+                  ),),
                 ),
                 Text(
                   ThaiDateUtils.formatThaiDate(widget.article.publishedAt),
-                  style: TextStyle(
+                  style: GoogleFonts.anuphan(textStyle: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
-                  ),
+                  ),),
                 ),
               ],
             ),

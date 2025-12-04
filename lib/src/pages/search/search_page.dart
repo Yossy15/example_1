@@ -1,14 +1,12 @@
-import 'dart:convert';
-
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:yossy_test/src/models/news_model.dart';
 import 'package:yossy_test/src/pages/detail/detail_page.dart';
 import 'package:yossy_test/src/riverpod/provider_page.dart';
 import 'package:yossy_test/src/utils/date_utils.dart';
-import 'package:extended_image/extended_image.dart';
-// import 'package:yossy_test/src/providers/search_provider.dart';
 
 class searchPage extends ConsumerStatefulWidget {
   const searchPage({super.key});
@@ -18,9 +16,24 @@ class searchPage extends ConsumerStatefulWidget {
 }
 
 class _searchPageState extends ConsumerState<searchPage> {
-  final RefreshController _refreshController = RefreshController(
-      initialRefresh: false);
+  final RefreshController _refreshController =
+      RefreshController(initialRefresh: false);
   final TextEditingController controller = TextEditingController();
+
+  void _onRefresh() async {
+    await ref.read(newsStateProvider.notifier).refreshNews();
+    _refreshController.loadComplete();
+  }
+
+  void _onLoading() async {
+    final hasMore = await ref.read(newsStateProvider).hasMore;
+    if (hasMore) {
+      await ref.read(newsStateProvider.notifier).loadMore();
+      _refreshController.loadComplete();
+    } else {
+      _refreshController.loadNoData();
+    }
+  }
 
   @override
   void initState() {
@@ -29,10 +42,6 @@ class _searchPageState extends ConsumerState<searchPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final keyword = ref.read(searchKeywordProvider);
       controller.text = keyword;
-
-      if (keyword.isNotEmpty) {
-        performSearch(ref, keyword);
-      }
     });
   }
 
@@ -44,18 +53,8 @@ class _searchPageState extends ConsumerState<searchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final keyword = ref.watch(searchKeywordProvider);
-    final isSearching = ref.watch(isSearchingProvider);
-    final searchResultsState = ref.watch(searchResultsProvider);
-    final initialNewsState = ref.watch(newsProvider);
-
-    final AsyncValue<List<Article>> displayState = isSearching
-        ? searchResultsState
-        : initialNewsState.when(
-      data: (data) => AsyncData(data),
-      loading: () => const AsyncLoading(),
-      error: (error, stackTrace) => AsyncError(error, stackTrace),
-    );
+    final state = ref.watch(newsStateProvider);
+    final keyword = state.searchKeyword;
 
     return Scaffold(
       appBar: AppBar(
@@ -64,7 +63,7 @@ class _searchPageState extends ConsumerState<searchPage> {
           onPressed: () {
             Navigator.pop(context);
             controller.clear();
-            clearSearch(ref);
+            ref.read(newsStateProvider.notifier).clearSearch();
           },
         ),
         title: Row(
@@ -81,18 +80,20 @@ class _searchPageState extends ConsumerState<searchPage> {
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: keyword.isNotEmpty
                         ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        controller.clear();
-                        clearSearch(ref);
-                      },
-                    )
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              controller.clear();
+                              ref
+                                  .read(newsStateProvider.notifier)
+                                  .clearSearch();
+                            },
+                          )
                         : null,
                     border: InputBorder.none,
                     hintText: "ค้นหา",
                   ),
                   onChanged: (value) {
-                    performSearch(ref, value);
+                    ref.read(newsStateProvider.notifier).performSearch(value);
                   },
                 ),
               ),
@@ -100,33 +101,66 @@ class _searchPageState extends ConsumerState<searchPage> {
           ],
         ),
       ),
-      body: displayState.when(
+      body: state.displayNews.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text("Error: $e")),
+        error: (error, stackTrace) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Text('เกิดข้อผิดพลาด: ${error.toString()}'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () =>
+                    ref.read(newsStateProvider.notifier).refreshNews(),
+                child: Text('ลองใหม่', style: GoogleFonts.anuphan(),),
+              ),
+            ],
+          ),
+        ),
         data: (articles) {
           return SmartRefresher(
             controller: _refreshController,
-            onRefresh: () {
-              ref.refresh(newsProvider);
-              if (keyword.isNotEmpty) {
-                performSearch(ref, keyword);
-              }
-              _refreshController.refreshCompleted();
-            },
-            // enablePullDown: true,
-            // enablePullUp: true,
-            child: ListView.builder(
-              itemCount: articles.length,
-              itemBuilder: (_, index) {
-                final article = articles[index];
-                return _buildArticleItem(article);
+            onRefresh: _onRefresh,
+            onLoading: _onLoading,
+            enablePullDown: true,
+            enablePullUp: true,
+            header: const MaterialClassicHeader(),
+
+            footer: CustomFooter(
+              builder: (BuildContext context, LoadStatus? mode) {
+                Widget body;
+                if (mode == LoadStatus.idle) { body = Text("pull up load", style: GoogleFonts.anuphan()); }
+                else if (mode == LoadStatus.loading) { body = const CupertinoActivityIndicator(); }
+                else if (mode == LoadStatus.failed) { body = Text("Load Failed!Click retry!", style: GoogleFonts.anuphan()); }
+                else if (mode == LoadStatus.canLoading) { body = Text("release to load more", style: GoogleFonts.anuphan()); }
+                else { body = Text("No more Data", style: GoogleFonts.anuphan()); }
+                return SizedBox(
+                    height: 55.0,
+                    child: Center(child: body)
+                );
               },
             ),
+            child: articles.isEmpty
+                ? Center(
+                    child: Text(
+                      'ไม่พบผลการค้นหา',
+                      style: GoogleFonts.anuphan(textStyle: const TextStyle(fontSize: 16, color: Colors.grey),),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: articles.length,
+                    itemBuilder: (_, index) {
+                      final article = articles[index];
+                      return _buildArticleItem(article);
+                    },
+                  ),
           );
         },
       ),
     );
   }
+
+//------------------------------------------------------------------------------
 
   _buildArticleItem(Article article) {
     return GestureDetector(
@@ -144,7 +178,7 @@ class _searchPageState extends ConsumerState<searchPage> {
           padding: const EdgeInsets.all(8),
           child: Row(
             children: [
-              ..._img(article),
+              _img(article),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -177,7 +211,7 @@ class _searchPageState extends ConsumerState<searchPage> {
     return [
       Text(
         article.title ?? 'No title',
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        style: GoogleFonts.anuphan(textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
@@ -188,7 +222,7 @@ class _searchPageState extends ConsumerState<searchPage> {
     return Container(
       child: Text(
         article.author ?? 'Unknown',
-        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+        style: GoogleFonts.anuphan(textStyle: TextStyle(fontSize: 12, color: Colors.grey[700]),),
       ),
     );
   }
@@ -212,10 +246,10 @@ class _searchPageState extends ConsumerState<searchPage> {
           children: [
             Text(
               ThaiDateUtils.formatThaiDate(article.publishedAt),
-              style: TextStyle(
+              style: GoogleFonts.anuphan(textStyle: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
-              ),
+              ),),
             ),
           ],
         ),
@@ -224,40 +258,32 @@ class _searchPageState extends ConsumerState<searchPage> {
   }
 
   _img(Article article) {
-    return [
-      Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.grey[300],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: (article.urlToImage != null && article.urlToImage!.isNotEmpty)
-            ? ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: SizedBox.fromSize(
-            // size: const Size.fromRadius(144),
-            child: Image.network(
-              article.urlToImage!,
-              width: double.infinity,
-              height: 300,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  Container(
-                    width: double.infinity,
-                    height: 300,
-                    color: Colors.grey[300],
-                    child: Icon(
-                      Icons.image,
-                      color: Colors.grey[600],
-                      size: 50,
-                    ),
-                  ),
-            ),
-          ),
-        )
-            : Icon(Icons.image, color: Colors.grey[600]),
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(8),
       ),
-    ];
+      child: (article.urlToImage != null && article.urlToImage!.isNotEmpty)
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                article.urlToImage!,
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: Colors.grey[300],
+                  child: Icon(
+                    Icons.image,
+                    color: Colors.grey[600],
+                    size: 40,
+                  ),
+                ),
+              ),
+            )
+          : Icon(Icons.image, color: Colors.grey[600], size: 40),
+    );
   }
 }
