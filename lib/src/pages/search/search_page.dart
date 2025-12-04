@@ -83,9 +83,7 @@ class _searchPageState extends ConsumerState<searchPage> {
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               controller.clear();
-                              ref
-                                  .read(newsStateProvider.notifier)
-                                  .clearSearch();
+                              ref.read(newsStateProvider.notifier).clearSearch();
                             },
                           )
                         : null,
